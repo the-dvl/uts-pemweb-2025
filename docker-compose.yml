@@ -1,29 +1,22 @@
+version: '3.8'
 services:
   php:
     build:
       context: ./php
-    container_name: uts-pemweb_php
-    healthcheck:
-      test: ["CMD-SHELL", "php artisan --version"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
+    container_name: ${COMPOSE_PROJECT_NAME}_php
+    # Teruskan variabel PROJECT_NAME ke dalam kontainer
+    environment:
+      - PROJECT_NAME=${PROJECT_NAME}
+      - XDEBUG=${XDEBUG:-false}
     volumes:
       - ./src:/var/www/html
-    environment:
-      - PROJECT_NAME=uts-pemweb
     depends_on:
-      - db
-
+      db:
+        condition: service_healthy
   nginx:
     build:
       context: ./nginx
-    container_name: uts-pemweb_nginx
-    healthcheck:
-      test: ["CMD-SHELL", "curl -k -fsSL https://uts-pemweb.test || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 30
+    container_name: ${COMPOSE_PROJECT_NAME}_nginx
     ports:
       - "443:443"
       - "80:80"
@@ -33,10 +26,10 @@ services:
       - ./nginx/ssl:/etc/nginx/ssl:ro
     depends_on:
       - php
-
   db:
     image: mariadb:10.11
-    container_name: uts-pemweb_db
+    container_name: ${COMPOSE_PROJECT_NAME}_db
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
@@ -45,7 +38,8 @@ services:
     ports:
       - "13306:3306"
     environment:
-      MYSQL_DATABASE: uts-pemweb
+      # Database ini akan dibuat saat kontainer pertama kali dijalankan
+      MYSQL_DATABASE: ${PROJECT_NAME}
       MYSQL_ROOT_PASSWORD: p455w0rd
     volumes:
       - ./db/conf.d:/etc/mysql/conf.d
